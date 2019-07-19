@@ -29,15 +29,6 @@ var resource = {
 	"description": "This data has been protected by OAuth 2.0"
 };
 
-var sharedTokenSecret = "shared token secret!";
-
-var rsaKey = {
-  "alg": "RS256",
-  "e": "AQAB",
-  "n": "p8eP5gL1H_H9UNzCuQS-vNRVz3NWxZTHYk1tG9VpkfFjWNKG3MFTNZJ1l5g_COMm2_2i_YhQNH8MJ_nQ4exKMXrWJB4tyVZohovUxfw-eLgu1XQ8oYcVYW8ym6Um-BkqwwWL6CXZ70X81YyIMrnsGTyTV6M8gBPun8g2L8KbDbXR1lDfOOWiZ2ss1CRLrmNM-GRp3Gj-ECG7_3Nx9n_s5to2ZtwJ1GS1maGjrSZ9GRAYLrHhndrL_8ie_9DS2T-ML7QNQtNkg2RvLv4f0dpjRYI23djxVtAylYK4oiT_uEMgSkc4dxwKwGuBxSO0g9JOobgfy0--FUHHYtRi0dOFZw",
-  "kty": "RSA",
-  "kid": "authserver"
-};
 
 var protectedResources = {
 		"resource_id": "test_client_1",
@@ -50,73 +41,20 @@ var authServer = {
 
 
 var getAccessToken = function(req, res, next) {
-	// check the auth header first
+	// Extraemos el token del header
 	var auth = req.headers['authorization'];
 	var inToken = null;
 	if (auth && auth.toLowerCase().indexOf('bearer') == 0) {
 		inToken = auth.slice('bearer '.length);
-	} else if (req.body && req.body.access_token) {
-		// not in the header, check in the form body
-		inToken = req.body.access_token;
-	} else if (req.query && req.query.access_token) {
-		inToken = req.query.access_token
 	}
 
 	console.log('Incoming token: %s', inToken);
-	/*
-	nosql.one(function(token) {
-		if (token.access_token == inToken) {
-			return token;
-		}
-	}, function(err, token) {
-		if (token) {
-			console.log("We found a matching token: %s", inToken);
-		} else {
-			console.log('No matching token was found.');
-		}
-		req.access_token = token;
-		next();
-		return;
-	});
-	*/
-	/*
-	//var signatureValid = jose.jws.JWS.verify(inToken, new Buffer(sharedTokenSecret).toString('hex'), ['HS256']);
-	var pubKey = jose.KEYUTIL.getKey(rsaKey);
-	var signatureValid = jose.jws.JWS.verify(inToken, pubKey, ['RS256']);
-	if (signatureValid) {
-		console.log('Signature validated.');
-		var tokenParts = inToken.split('.');
-		var payload = JSON.parse(base64url.decode(tokenParts[1]));
-		console.log('Payload', payload);
-		if (payload.iss == 'http://localhost:9001/') {
-			console.log('issuer OK');
-			if ((Array.isArray(payload.aud) && _.contains(payload.aud, 'http://localhost:9002/')) ||
-				payload.aud == 'http://localhost:9002/') {
-				console.log('Audience OK');
-
-				var now = Math.floor(Date.now() / 1000);
-
-				if (payload.iat <= now) {
-					console.log('issued-at OK');
-					if (payload.exp >= now) {
-						console.log('expiration OK');
-
-						console.log('Token valid!');
-
-						req.access_token = payload;
-
-					}
-				}
-			}
-
-		}
+	
 
 
-	}
-	next();
-	return;
-	*/
-
+	// Validacion de token.
+	// En este caso se realiza contra el servidor de autorizacion enviando el token al endpoint "/instrospect" del mismo.
+	// Este llamado devuelve un objeto json con informacion del token, por ej: si esta activo, o cuando expira.
 	var form_data = qs.stringify({
 		token: inToken
 	});
@@ -146,6 +84,7 @@ var getAccessToken = function(req, res, next) {
 
 };
 
+// Si el token no vino en el header o el mismo esta expirado, se devuelve error 401.
 var requireAccessToken = function(req, res, next) {
 	if (req.access_token) {
 		next();
